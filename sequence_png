@@ -1,0 +1,52 @@
+#!/bin/bash
+usage="Sequence a set of png files in a folder
+
+Usage: sequence_png [-options] folder/
+
+Where options can be
+-h		show this help
+-v		verbose
+-s <int>	Start of sequence, 1 is default" 
+
+vflag='no'
+sflag='no'
+start=1
+while getopts "hvs:" opt; do
+	case $opt in
+		h)
+			echo "$usage">&2
+			exit 1
+			;;
+		v)
+			vflag='yes'
+			;;
+		s)	
+			sflag='yes'
+			start=$OPTARG
+			;;
+		:)
+			echo "Option -$OPTARG requires an argument." >&2
+			exit 1
+			;;
+	esac
+done
+
+shift $(expr $OPTIND - 1 )
+
+
+if [ ! -d "$1" ]; then
+	echo "Directory doesnt exists"
+	exit
+fi
+
+cd $1
+file=$start
+for i in *.png; do
+	new=$(printf "%04d.png" "$file") #03 pad to length of 3
+	if [ $vflag = yes ]; then
+		echo "$i" "$new"	
+	fi
+	mv "$i" "$new"
+	let file=file+1
+done
+cd ..

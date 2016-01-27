@@ -1,0 +1,153 @@
+#!/bin/bash
+usage="Converts a gif into a mp4 video
+
+Usage: videolizer [-options] source.gif|source/
+
+Where options can be
+  -h		show this help
+  -v		verbose  
+  -d		double resolution
+  -f number	set framerate, defaults to 15
+  -o output.mp4 set output file, defaults to source destination with mp4 extension
+  -l n		set the amount of time it repeats, defaults to 10
+  -w file.png	adds a watermark at the bottom(-gravity SouthEast)
+  -t file.png	adds a title at the top (-gravity NorthWest)
+  -e folder	extract the gif as single frames to the given folder and then exits"
+
+vflag='no'
+dflag='no'
+fps=15
+loops=10
+output=output.mp4
+wflag='no'
+watermark=''
+tflag='no'
+title=''
+eflag='no'
+extraction=''
+while getopts "hvdf:o:l:w:e:t:" opt; do
+	case $opt in
+	h)
+		echo "$usage">&2
+		exit 1
+		;;
+	v)
+		vflag='yes'
+		;;	
+	d)
+		dflag='yes'
+		;;
+	f)
+		fps=$OPTARG
+		;;
+	l)
+		loops=$OPTARG
+		;;	
+	o)
+		output=$OPTARG
+		;;
+	w)
+		wflag='yes'		
+		watermark=$OPTARG
+		;;
+	t)
+		tflag='yes'		
+		title=$OPTARG
+		;;
+	e)
+		eflag='yes'		
+		extraction=$OPTARG
+		;;
+	:)
+		echo "Option -$OPTARG requires an argument." >&2
+		exit 1
+		;;
+	esac
+done
+
+shift $(expr $OPTIND - 1 )
+
+source=$1
+if [ $output = "output.mp4" ]; then
+	if [[ -f $source ]]; then
+		output="${1::-4}".mp4		
+		clean="${source::-4}"
+	elif [[ -d $source ]]; then
+		output="${source::-4}"/
+		clean="${source::-1}"
+	fi
+fi
+
+if [ $vflag = yes ]; then
+	echo "Source: $source"	
+	echo "Doubled: $dflag"
+	echo "Fps: $fps"
+	echo "Loops: $loops"
+	echo "Output: $output"
+	echo "Watermark: $wflag"
+	echo "title: $tflag"
+fi
+
+if [ $eflag = yes ]; then
+
+	if [ ! -d $extraction ]; then
+	    mkdir -p $extraction;
+	fi;
+	convert -coalesce $source -colorspace sRGB -alpha on PNG32:$extraction/%04d.png
+	beep
+	notify-send "Extraction Finished"
+	exit
+fi
+
+mkdir _videolizer_temp_dir_
+
+#converts gif to single pngs
+if [[ -f $source ]]; then
+	convert -coalesce $source -colorspace sRGB -alpha on PNG32:_videolizer_temp_dir_/%04d.png
+elif [[ -d $source ]]; then
+	cp $source/*.png _videolizer_temp_dir_/
+fi
+
+#doubles it if selected
+if [ $dflag = yes ]; then
+	mogrify -resize 200% _videolizer_temp_dir_/*.png
+fi
+width=$(identify -format "%w" _videolizer_temp_dir_/0001.png)
+
+eog _videolizer_temp_dir_/0001.png &
+
+#adds the title
+if [ $tflag = yes ]; then
+	find _videolizer_temp_dir_/ -name "*.png" -print0 | sort -z | xargs -l1 -0 -I {} convert {} -gravity North -background black -fill "#00f800" -splice 0x18 -font "/home/levhita/.fonts/8bit_wonder/8-BIT WONDER.TTF" -pointsize 12 -annotate +0+2 "$title" {}
+fi
+
+#adds the watermark
+if [ $wflag = yes ]; then
+	cp $watermark _videolizer_watermark_.png
+	mogrify -gravity East -crop "$width"x0+0 _videolizer_watermark_.png
+	find _videolizer_temp_dir_/ -name "*.png" -print0 | sort -z | xargs -l1 -0 -I {} convert -append -quality 100 -gravity SouthEast {} _videolizer_watermark_.png {}
+	rm _videolizer_watermark_.png
+fi
+
+
+
+#creates the single video
+avconv -r $fps -f image2 -i _videolizer_temp_dir_/%04d.png -vcodec libx264 -crf 25 _videolizer_temp_dir_/single.mp4
+
+#repeats the single video
+repeats=""
+i=0
+while [ $i -lt $loops ]
+do
+	repeats="$repeats -cat _videolizer_temp_dir_/single.mp4"
+	i=$[$i+1]
+done
+MP4Box $repeats -new loop.mp4
+
+#moves file to final destination
+mv loop.mp4 $output
+
+#cleans all
+rm -rf _videolizer_temp_dir_/ 
+beep
+notify-send "Videolizer Finished"

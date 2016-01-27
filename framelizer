@@ -1,0 +1,6 @@
+#!/bin/bash
+width=$2
+height=$3
+avconv -i $1 -filter:v "scale=iw*min($width/iw\,$height/ih):ih*min($width/iw\,$height/ih), pad=$width:$height:($width-iw*min($width/iw\,$height/ih))/2:($height-ih*min($width/iw\,$height/ih))/2" $4
+#add a padding to the top, bottom, left and right, centering the image, serve the new widht and height
+#framelizer GoodnaturedSmartHyrax.webm 1920 794 running.mp4

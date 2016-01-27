@@ -1,0 +1,7 @@
+#!/bin/bash
+#cut the video to new width and height
+input=$1
+width=$2
+height=$3
+output=$4
+avconv -i $input  -vf crop=$width:$height -y $output

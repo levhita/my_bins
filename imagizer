@@ -1,0 +1,8 @@
+#!/bin/bash
+if [ ! -d $2 ]; then
+    mkdir -p $2
+fi
+avconv -i $1 -f image2 $2/%04d.png
+sequence_png -s 0 $2
+beep
+notify-send "Imagizer Finished"
