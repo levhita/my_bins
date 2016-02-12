@@ -1,0 +1,60 @@
+#!/bin/bash
+usage="Converts a pgn sequence into a mp4 video
+
+Usage: $0 [-options] source/
+
+Where options can be
+  -h		show this help
+  -v		verbose  
+  -f number	set framerate, defaults to 24
+  -o output.mp4 set output file, default to source.mp4
+  -p prefix"
+
+vflag='no'
+fps=24
+output=output.mp4
+prefix="animation."
+while getopts "hvf:o:p:" opt; do
+	case $opt in
+	h)
+		echo "$usage">&2
+		exit 1
+		;;
+	v)
+		vflag='yes'
+		;;	
+	f)
+		fps=$OPTARG
+		;;
+	o)
+		output=$OPTARG
+		;;
+	p)
+		prefix=$OPTARG
+		;;
+	:)
+		echo "Option -$OPTARG requires an argument." >&2
+		exit 1
+		;;
+	esac
+done
+
+shift $(expr $OPTIND - 1 )
+
+source=$1
+
+if [ $output = "output.mp4" ]; then
+	output="${source::-1}".mp4
+fi
+
+if [ $vflag = yes ]; then
+	echo "Source: $source"	
+	echo "Fps: $fps"
+	echo "Output: $output"
+fi
+
+#creates the single video
+avconv -r $fps -f image2 -i $source/${prefix}%04d.png -vcodec libx264 -crf 25 $output
+
+beep
+notify-send "Renderlizer Finished"
